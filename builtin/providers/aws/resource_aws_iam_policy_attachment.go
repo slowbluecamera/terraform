@@ -88,6 +88,19 @@ func resourceAwsIamPolicyAttachmentRead(d *schema.ResourceData, meta interface{}
 	arn := d.Get("policy_arn").(string)
 	name := d.Get("name").(string)
 
+	users := expandStringList(d.Get("users").(*schema.Set).List())
+	roles := expandStringList(d.Get("roles").(*schema.Set).List())
+	groups := expandStringList(d.Get("groups").(*schema.Set).List())
+
+	log.Print(">>>>>>>>>> I'm Buddy Rich when I fly off the handle! <<<<<<<<")
+
+	log.Printf("[DEBUG] schema users: (%+v)", users)
+	log.Printf("[DEBUG] schema roles: (%+v)", roles)
+	log.Printf("[DEBUG] schema groups: (%+v)", groups)
+
+	log.Printf("[DEBUG] arn (%s)", arn)
+	log.Printf("[DEBUG] name (%s)", name)
+
 	_, err := conn.GetPolicy(&iam.GetPolicyInput{
 		PolicyArn: aws.String(arn),
 	})
@@ -107,6 +120,8 @@ func resourceAwsIamPolicyAttachmentRead(d *schema.ResourceData, meta interface{}
 		PolicyArn: aws.String(arn),
 	})
 
+	log.Printf("[DEBUG] policyEntities: (%+v)", policyEntities)
+
 	if err != nil {
 		return err
 	}
@@ -115,16 +130,33 @@ func resourceAwsIamPolicyAttachmentRead(d *schema.ResourceData, meta interface{}
 	rl := make([]string, 0, len(policyEntities.PolicyRoles))
 	gl := make([]string, 0, len(policyEntities.PolicyGroups))
 
-	for _, u := range policyEntities.PolicyUsers {
-		ul = append(ul, *u.UserName)
+	// Only write state for users we specifically created and that were also returned
+	for _, ru := range policyEntities.PolicyUsers {
+		for _, ku := range users {
+			log.Printf("[DEBUG] *ru.UserName (%s)", *ru.UserName)
+			if *ru.UserName == *ku {
+				ul = append(ul, *ru.UserName)
+			}
+		}
 	}
 
-	for _, r := range policyEntities.PolicyRoles {
-		rl = append(rl, *r.RoleName)
+	for _, rr := range policyEntities.PolicyRoles {
+		for _, kr := range roles {
+			log.Printf("[DEBUG] *rr.RoleName (%s)", *rr.RoleName)
+			log.Printf("[DEBUG] *kr (%s)", *kr)
+			if *rr.RoleName == *kr {
+				rl = append(rl, *rr.RoleName)
+			}
+		}
 	}
 
-	for _, g := range policyEntities.PolicyGroups {
-		gl = append(gl, *g.GroupName)
+	for _, rg := range policyEntities.PolicyGroups {
+		for _, kg := range groups {
+			log.Printf("[DEBUG] *rg.GroupName (%s)", *rg.GroupName)
+			if *rg.GroupName == *kg {
+				gl = append(gl, *rg.GroupName)
+			}
+		}
 	}
 
 	userErr := d.Set("users", ul)
